@@ -5,6 +5,7 @@
 
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -15,8 +16,10 @@ import { KeybindingWeight } from '../../../../platform/keybinding/common/keybind
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
 import { IPaneCompositePartService } from '../../../services/panecomposite/browser/panecomposite.js';
+import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IXorvisService } from '../common/xorvis.js';
 import { XorvisService } from './xorvisService.js';
 import { XorvisViewPane } from './xorvisViewPane.js';
@@ -58,7 +61,7 @@ const xorvisViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.
 		storageId: XORVIS_VIEW_CONTAINER_ID,
 		hideIfEmpty: true,
 		order: 1,
-	}, ViewContainerLocation.AuxiliaryBar, { isDefault: false });
+	}, ViewContainerLocation.AuxiliaryBar, { isDefault: true });
 
 // --- View Descriptor
 
@@ -112,3 +115,32 @@ registerAction2(class ClearXorvisChat extends Action2 {
 		accessor.get(IXorvisService).clearHistory();
 	}
 });
+
+// --- Auto-open: ensure the Xorvis AI panel is visible on every IDE start
+
+class XorvisAutoOpenContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.xorvisAutoOpen';
+
+	constructor(
+		@ILifecycleService private readonly lifecycleService: ILifecycleService,
+		@IPaneCompositePartService private readonly paneCompositeService: IPaneCompositePartService,
+	) {
+		super();
+		this._open();
+	}
+
+	private async _open(): Promise<void> {
+		await this.lifecycleService.when(LifecyclePhase.Restored);
+		await this.paneCompositeService.openPaneComposite(
+			XORVIS_VIEW_CONTAINER_ID,
+			ViewContainerLocation.AuxiliaryBar,
+			false, // keep focus in the editor
+		);
+	}
+}
+
+registerWorkbenchContribution2(
+	XorvisAutoOpenContribution.ID,
+	XorvisAutoOpenContribution,
+	WorkbenchPhase.AfterRestored,
+);
