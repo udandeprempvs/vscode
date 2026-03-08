@@ -206,6 +206,9 @@ import './contrib/notebook/browser/notebook.contribution.js';
 // Speech
 import './contrib/speech/browser/speech.contribution.js';
 
+// Xorvis AI
+import './contrib/xorvis/browser/xorvis.contribution.js';
+
 // Chat
 import './contrib/chat/browser/chat.contribution.js';
 import './contrib/inlineChat/browser/inlineChat.contribution.js';
