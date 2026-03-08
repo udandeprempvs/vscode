@@ -1,78 +1,335 @@
-# Visual Studio Code - Open Source ("Code - OSS")
-[![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-[![Bugs](https://img.shields.io/github/issues/microsoft/vscode/bug.svg)](https://github.com/microsoft/vscode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
-[![Gitter](https://img.shields.io/badge/chat-on%20gitter-yellow.svg)](https://gitter.im/Microsoft/vscode)
+# Xorvis IDE
 
-## The Repository
+**Chip Designing AI-Powered IDE**
 
-This repository ("`Code - OSS`") is where we (Microsoft) develop the [Visual Studio Code](https://code.visualstudio.com) product together with the community. Not only do we work on code and issues here, we also publish our [roadmap](https://github.com/microsoft/vscode/wiki/Roadmap), [monthly iteration plans](https://github.com/microsoft/vscode/wiki/Iteration-Plans), and our [endgame plans](https://github.com/microsoft/vscode/wiki/Running-the-Endgame). This source code is available to everyone under the standard [MIT license](https://github.com/microsoft/vscode/blob/main/LICENSE.txt).
+[![Built on VS Code](https://img.shields.io/badge/Built%20on-VS%20Code%20OSS-blue?logo=visualstudiocode)](https://github.com/microsoft/vscode)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.txt)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple)](https://github.com/microsoft/vscode/blob/main/LICENSE.txt)
 
-## Visual Studio Code
+---
 
-<p align="center">
-  <img alt="VS Code in action" src="https://user-images.githubusercontent.com/35271042/118224532-3842c400-b438-11eb-923d-a5f66fa6785a.png">
-</p>
+## What Is Xorvis IDE?
 
-[Visual Studio Code](https://code.visualstudio.com) is a distribution of the `Code - OSS` repository with Microsoft-specific customizations released under a traditional [Microsoft product license](https://code.visualstudio.com/License/).
+Xorvis IDE is a fork of [VS Code OSS](https://github.com/microsoft/vscode) tailored for chip design workflows. It embeds an AI agent chat panel **directly into the editor workbench** — not as a plugin or extension — giving the agent full awareness of your open file and workspace context at all times.
 
-[Visual Studio Code](https://code.visualstudio.com) combines the simplicity of a code editor with what developers need for their core edit-build-debug cycle. It provides comprehensive code editing, navigation, and understanding support along with lightweight debugging, a rich extensibility model, and lightweight integration with existing tools.
+The AI panel connects to your own backend agent via a simple REST API. Your agent receives the active file content and workspace file tree with every message, so it can reason about your Verilog, SystemVerilog, VHDL, or any other chip design files and return targeted code edits.
 
-Visual Studio Code is updated monthly with new features and bug fixes. You can download it for Windows, macOS, and Linux on [Visual Studio Code's website](https://code.visualstudio.com/Download). To get the latest releases every day, install the [Insiders build](https://code.visualstudio.com/insiders).
+---
 
-## Contributing
+## Architecture
 
-There are many ways in which you can participate in this project, for example:
+```
+┌───────────────────────────────────────────────────────────┐
+│                    Xorvis IDE (Editor UI)                  │
+│                                                           │
+│  Monaco Editor · File Explorer · Terminal · Git · ...     │
+│                                                           │
+│  ┌────────────────────────────────────────────────────┐   │
+│  │             Xorvis AI Panel (right sidebar)        │   │
+│  │  ┌──────────────────────────────────────────────┐  │   │
+│  │  │ XorvisService                                │  │   │
+│  │  │   ├── IDEBridge                              │  │   │
+│  │  │   │     • active file content                │  │   │
+│  │  │   │     • workspace file tree (≤500 files)   │  │   │
+│  │  │   └── AgentClient                            │  │   │
+│  │  │         POST /chat  ──────────────────────►  │  │   │
+│  │  │         ◄────────────────────  AI Response   │  │   │
+│  │  └──────────────────────────────────────────────┘  │   │
+│  └────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────┘
+                              │
+                     REST API (JSON)
+                              │
+              ┌───────────────▼───────────────┐
+              │       AI Agent Backend        │
+              │    (FastAPI / any HTTP server) │
+              │                               │
+              │  receives: messages + context  │
+              │  returns:  response + patches  │
+              └───────────────────────────────┘
+```
 
-* [Submit bugs and feature requests](https://github.com/microsoft/vscode/issues), and help us verify as they are checked in
-* Review [source code changes](https://github.com/microsoft/vscode/pulls)
-* Review the [documentation](https://github.com/microsoft/vscode-docs) and make pull requests for anything from typos to additional and new content
+---
 
-If you are interested in fixing issues and contributing directly to the code base,
-please see the document [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute), which covers the following:
+## Features
 
-* [How to build and run from source](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
-* [The development workflow, including debugging and running tests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#debugging)
-* [Coding guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines)
-* [Submitting pull requests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests)
-* [Finding an issue to work on](https://github.com/microsoft/vscode/wiki/How-to-Contribute#where-to-contribute)
-* [Contributing to translations](https://aka.ms/vscodeloc)
+- **Xorvis AI chat panel** — opens in the right sidebar with `Ctrl+Shift+X` / `Cmd+Shift+X`; powered entirely by your own agent
+- **Automatic context injection** — every chat message includes the currently open file's path and full content, plus a list of all workspace files (up to 500, depth 3)
+- **Code patch application** — your agent can return `patches` in the response; Xorvis applies them directly to the editor files with a single undo step
+- **Markdown rendering** — assistant responses are rendered with code blocks, inline code, lists, and paragraphs
+- **Isolated user data** — all settings stored in `~/.xorvis/` (macOS: `~/Library/Application Support/xorvis/`); never touches any existing VS Code installation
+- **Full VS Code feature set** — syntax highlighting, IntelliSense, debugging, terminal, git integration, themes, and the full extension marketplace
 
-## Feedback
+---
 
-* Ask a question on [Stack Overflow](https://stackoverflow.com/questions/tagged/vscode)
-* [Request a new feature](CONTRIBUTING.md)
-* Upvote [popular feature requests](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-* [File an issue](https://github.com/microsoft/vscode/issues)
-* Connect with the extension author community on [GitHub Discussions](https://github.com/microsoft/vscode-discussions/discussions) or [Slack](https://aka.ms/vscode-dev-community)
-* Follow [@code](https://x.com/code) and let us know what you think!
+## Custom Code Added to This Fork
 
-See our [wiki](https://github.com/microsoft/vscode/wiki/Feedback-Channels) for a description of each of these channels and information on some other available community-driven channels.
+Everything Xorvis-specific lives under `src/vs/workbench/contrib/xorvis/`. The rest of the codebase is standard VS Code OSS.
 
-## Related Projects
+| File | Purpose |
+|------|---------|
+| `src/vs/workbench/contrib/xorvis/common/xorvis.ts` | TypeScript types (`IChatMessage`, `IAgentRequest`, `IAgentResponse`) and `IXorvisService` interface |
+| `src/vs/workbench/contrib/xorvis/browser/agentClient.ts` | HTTP client — makes `POST /chat` requests to the configured endpoint |
+| `src/vs/workbench/contrib/xorvis/browser/ideBridge.ts` | Gathers IDE context: active file content and workspace file tree |
+| `src/vs/workbench/contrib/xorvis/browser/xorvisService.ts` | Service implementation — orchestrates the bridge, client, and patch application |
+| `src/vs/workbench/contrib/xorvis/browser/xorvisViewPane.ts` | Chat panel UI (ViewPane) — message bubbles, textarea, send button |
+| `src/vs/workbench/contrib/xorvis/browser/xorvis.css` | Styles using VS Code theme CSS variables |
+| `src/vs/workbench/contrib/xorvis/browser/xorvis.contribution.ts` | Registers the view container, view, service, configuration, and commands |
+| `scripts/xorvis-dev.sh` | Development launcher — starts the TypeScript watcher and opens the IDE |
+| `scripts/xorvis-build-dmg.sh` | macOS DMG build — clean production build packaged as a distributable `.dmg` |
+| `product.json` | IDE branding — name, bundle identifier, and data folder (`~/.xorvis/`) |
 
-Many of the core components and extensions to VS Code live in their own repositories on GitHub. For example, the [node debug adapter](https://github.com/microsoft/vscode-node-debug) and the [mono debug adapter](https://github.com/microsoft/vscode-mono-debug) repositories are separate from each other. For a complete list, please visit the [Related Projects](https://github.com/microsoft/vscode/wiki/Related-Projects) page on our [wiki](https://github.com/microsoft/vscode/wiki).
+**Entry point registration:** `src/vs/workbench/workbench.common.main.ts` imports `xorvis.contribution.ts` so the panel loads on startup.
 
-## Bundled Extensions
+---
 
-VS Code includes a set of built-in extensions located in the [extensions](extensions) folder, including grammars and snippets for many languages. Extensions that provide rich language support (inline suggestions, Go to Definition) for a language have the suffix `language-features`. For example, the `json` extension provides coloring for `JSON` and the `json-language-features` extension provides rich language support for `JSON`.
+## Agent API Contract
 
-## Development Container
+Your AI agent backend must expose one HTTP endpoint. Xorvis calls it on every chat message.
 
-This repository includes a Visual Studio Code Dev Containers / GitHub Codespaces development container.
+### Request
 
-* For [Dev Containers](https://aka.ms/vscode-remote/download/containers), use the **Dev Containers: Clone Repository in Container Volume...** command which creates a Docker volume for better disk I/O on macOS and Windows.
-  * If you already have VS Code and Docker installed, you can also click [here](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/vscode) to get started. This will cause VS Code to automatically install the Dev Containers extension if needed, clone the source code into a container volume, and spin up a dev container for use.
+```
+POST {xorvis.apiEndpoint}
+Content-Type: application/json
+```
 
-* For Codespaces, install the [GitHub Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) extension in VS Code, and use the **Codespaces: Create New Codespace** command.
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "How do I add clock gating to this module?",
+      "timestamp": 1709900000000
+    }
+  ],
+  "context": {
+    "currentFile": {
+      "path": "/workspace/chip/top.v",
+      "content": "module top(\n  input clk,\n  ...\n);\nendmodule"
+    },
+    "workspaceFiles": [
+      "chip/top.v",
+      "chip/alu.v",
+      "chip/constraints.sdc",
+      "chip/floorplan.def"
+    ]
+  }
+}
+```
 
-Docker / the Codespace should have at least **4 Cores and 6 GB of RAM (8 GB recommended)** to run a full build. See the [development container README](.devcontainer/README.md) for more information.
+**Notes:**
+- `messages` is the full conversation history (all previous turns included)
+- `context.currentFile` is `undefined` if no file is open in the editor
+- `context.workspaceFiles` lists relative paths from the workspace root (max 500 entries, max depth 3); hidden directories and `node_modules`, `out`, `dist`, `build`, `target` are excluded
 
-## Code of Conduct
+### Response
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+```json
+{
+  "content": "To add clock gating, insert a **clock gate cell**:\n\n```verilog\nCKGATE u_ck (\n  .CK(clk), .EN(enable), .GCK(gated_clk)\n);\n```\n\nThen replace `clk` with `gated_clk` in the always block.",
+  "patches": [
+    {
+      "file": "chip/top.v",
+      "start": 8,
+      "end": 12,
+      "code": "CKGATE u_ck (.CK(clk), .EN(enable), .GCK(gated_clk));\n\nalways @(posedge gated_clk) begin"
+    }
+  ]
+}
+```
+
+**Notes:**
+- `content` is required — rendered as Markdown in the chat panel
+- `patches` is optional — if present, each patch replaces lines `start` through `end` (1-based, inclusive) in the given file with `code`
+- File paths in patches are relative to the workspace root
+- All patches are applied atomically with a single undo entry
+
+### Minimal Python/FastAPI Example
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Message(BaseModel):
+    role: str
+    content: str
+    timestamp: int
+
+class Context(BaseModel):
+    currentFile: dict | None = None
+    workspaceFiles: list[str] = []
+
+class ChatRequest(BaseModel):
+    messages: list[Message]
+    context: Context
+
+@app.post("/chat")
+def chat(req: ChatRequest):
+    last_message = req.messages[-1].content
+    current_file = req.context.currentFile
+
+    # Your agent logic here
+    response_text = your_agent.run(last_message, current_file, req.context.workspaceFiles)
+
+    return {
+        "content": response_text,
+        # "patches": [...]  # optional
+    }
+```
+
+---
+
+## Getting Started (Development)
+
+### Prerequisites
+
+| Tool | Minimum Version | Install |
+|------|----------------|---------|
+| Node.js | 20 | [nodejs.org](https://nodejs.org) |
+| Git | any | system package manager |
+| Python | 3.10 | needed only for `xorvis-build-dmg.sh` |
+| Xcode CLI | — | `xcode-select --install` (macOS only, for DMG) |
+
+### 1. Clone the Repo
+
+```bash
+git clone <your-fork-url> xorvis-ide
+cd xorvis-ide
+```
+
+### 2. Start the IDE in Dev Mode
+
+```bash
+./scripts/xorvis-dev.sh
+```
+
+This script:
+1. Runs `npm ci` if `node_modules` is missing
+2. Starts `npm run watch` in the background — TypeScript files are recompiled automatically on save (logs written to `.xorvis-watch.log`)
+3. Waits for the initial compilation to finish (about 60 seconds on first run)
+4. Launches Xorvis IDE
+
+> **Note:** Electron does not hot-reload. After editing a `.ts` file, save it, wait for the watcher to recompile (watch the log), then restart the IDE.
+
+### 3. Connect Your Agent
+
+Open **Settings** (`Ctrl+,` / `Cmd+,`) and search for `xorvis`. Set:
+
+```
+xorvis.apiEndpoint = http://localhost:8000/chat
+```
+
+Make sure your agent is running at that address before opening the chat panel.
+
+### 4. Open the Xorvis AI Panel
+
+Press `Ctrl+Shift+X` (macOS: `Cmd+Shift+X`), or open the Command Palette (`Ctrl+Shift+P`) and run:
+
+```
+Xorvis: Open Xorvis AI
+```
+
+The panel opens in the right sidebar. Type your question and press **Enter** or click **Send**.
+
+---
+
+## Keyboard Shortcuts and Commands
+
+| Action | Default Shortcut | Command Palette |
+|--------|-----------------|-----------------|
+| Open Xorvis AI panel | `Ctrl+Shift+X` / `Cmd+Shift+X` | `Xorvis: Open Xorvis AI` |
+| Clear chat history | — | `Xorvis: Clear Xorvis AI Chat` |
+
+---
+
+## Configuration
+
+All settings live under the `xorvis` namespace in VS Code Settings.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `xorvis.apiEndpoint` | `string` | `http://localhost:8000/chat` | Full URL of your AI agent's `/chat` endpoint. Change this if your agent runs on a different host or port. |
+
+---
+
+## Building a Distributable DMG (macOS)
+
+The DMG script performs a **clean production build** from source and packages it as a macOS disk image ready to share with clients.
+
+```bash
+./scripts/xorvis-build-dmg.sh
+```
+
+What happens:
+1. Deletes all previous build artifacts (`out/`, `out-build/`, etc.) to guarantee a fresh build
+2. Runs `npm run gulp vscodedarwin-{arch}` — compiles TypeScript, bundles JS, packages the `.app`
+3. Calls `build/darwin/create-dmg.ts` to create the DMG
+4. Saves the final file to `dist/Xorvis-IDE-{arch}-{YYYYMMDD}.dmg`
+
+> Requires: macOS, Xcode CLI, Node.js ≥ 20, Python ≥ 3.10. Build takes 10–20 minutes on first run.
+
+### Client Installation
+
+Send the `.dmg` file to your client. They:
+1. Double-click the DMG
+2. Drag **Xorvis IDE** to their `/Applications` folder
+3. Open it — first launch creates `~/Library/Application Support/xorvis/` with a clean, empty configuration
+
+No existing VS Code or Code-OSS settings are affected.
+
+---
+
+## Project Structure
+
+```
+xorvis-ide/
+├── src/
+│   └── vs/
+│       └── workbench/
+│           └── contrib/
+│               └── xorvis/               ← All Xorvis AI code
+│                   ├── common/
+│                   │   └── xorvis.ts     ← Types + service interface
+│                   └── browser/
+│                       ├── agentClient.ts
+│                       ├── ideBridge.ts
+│                       ├── xorvisService.ts
+│                       ├── xorvisViewPane.ts
+│                       ├── xorvis.css
+│                       └── xorvis.contribution.ts
+├── scripts/
+│   ├── xorvis-dev.sh                     ← Dev launcher
+│   ├── xorvis-build-dmg.sh               ← Client DMG build
+│   └── code.sh                           ← Upstream dev launcher (used internally)
+├── product.json                          ← IDE identity and branding
+└── build/
+    └── darwin/
+        └── create-dmg.ts                 ← DMG creation (upstream script, unmodified)
+```
+
+The rest of the codebase is standard VS Code OSS. Upstream changes can be merged without touching any Xorvis-specific files.
+
+---
+
+## How Edits Are Applied
+
+When the agent returns a `patches` array, Xorvis IDE applies them using VS Code's built-in bulk edit service. Each patch specifies:
+
+- `file` — path relative to the workspace root (e.g. `chip/top.v`)
+- `start` — first line to replace (1-based)
+- `end` — last line to replace (1-based, inclusive)
+- `code` — the replacement text
+
+All patches are applied as a single undoable operation. A notification appears: *"Xorvis AI applied N edit(s)."*
+
+---
 
 ## License
 
-Copyright (c) Microsoft Corporation. All rights reserved.
+Copyright (c) Microsoft Corporation (upstream VS Code OSS).
+Xorvis IDE modifications copyright (c) Xorvis.
 
-Licensed under the [MIT](LICENSE.txt) license.
+Licensed under the [MIT License](LICENSE.txt).
