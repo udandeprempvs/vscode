@@ -53,7 +53,7 @@ The AI panel connects to your own backend agent via a simple REST API. Your agen
 
 ## Features
 
-- **Xorvis AI chat panel** — opens in the right sidebar with `Ctrl+Shift+X` / `Cmd+Shift+X`; powered entirely by your own agent
+- **Xorvis AI chat panel** — opens automatically in the right sidebar on every IDE start; use `Ctrl+Shift+X` / `Cmd+Shift+X` to re-focus it at any time; powered entirely by your own agent
 - **Automatic context injection** — every chat message includes the currently open file's path and full content, plus a list of all workspace files (up to 500, depth 3)
 - **Code patch application** — your agent can return `patches` in the response; Xorvis applies them directly to the editor files with a single undo step
 - **Markdown rendering** — assistant responses are rendered with code blocks, inline code, lists, and paragraphs
@@ -222,17 +222,13 @@ Open **Settings** (`Ctrl+,` / `Cmd+,`) and search for `xorvis`. Set:
 xorvis.apiEndpoint = http://localhost:8000/chat
 ```
 
-Make sure your agent is running at that address before opening the chat panel.
+Make sure your agent is running at that address before sending your first message.
 
-### 4. Open the Xorvis AI Panel
+### 4. Use the Xorvis AI Panel
 
-Press `Ctrl+Shift+X` (macOS: `Cmd+Shift+X`), or open the Command Palette (`Ctrl+Shift+P`) and run:
+The panel opens automatically in the right sidebar when the IDE starts — no action required. Type your question and press **Enter** or click **Send**.
 
-```
-Xorvis: Open Xorvis AI
-```
-
-The panel opens in the right sidebar. Type your question and press **Enter** or click **Send**.
+To re-focus the panel at any time, press `Ctrl+Shift+X` (macOS: `Cmd+Shift+X`), or open the Command Palette (`Ctrl+Shift+P`) and run `Xorvis: Open Xorvis AI`.
 
 ---
 
@@ -240,7 +236,7 @@ The panel opens in the right sidebar. Type your question and press **Enter** or 
 
 | Action | Default Shortcut | Command Palette |
 |--------|-----------------|-----------------|
-| Open Xorvis AI panel | `Ctrl+Shift+X` / `Cmd+Shift+X` | `Xorvis: Open Xorvis AI` |
+| Focus Xorvis AI panel (auto-opens on start) | `Ctrl+Shift+X` / `Cmd+Shift+X` | `Xorvis: Open Xorvis AI` |
 | Clear chat history | — | `Xorvis: Clear Xorvis AI Chat` |
 
 ---
