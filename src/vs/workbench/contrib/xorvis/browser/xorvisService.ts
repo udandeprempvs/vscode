@@ -77,7 +77,9 @@ export class XorvisService extends Disposable implements IXorvisService {
 			if (err instanceof Error && err.name === 'AbortError') {
 				responseContent = '_Request cancelled._';
 			} else {
-				responseContent = `**Error:** ${err instanceof Error ? err.message : String(err)}`;
+				const msg = err instanceof Error ? err.message : String(err);
+				responseContent = `**Error:** ${msg}`;
+				this.notificationService.error(msg);
 			}
 		} finally {
 			this._abortController = undefined;

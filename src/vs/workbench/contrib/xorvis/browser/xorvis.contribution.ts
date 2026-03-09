@@ -138,9 +138,10 @@ class XorvisAutoOpenContribution extends Disposable implements IWorkbenchContrib
 		);
 
 		// Hide the built-in VS Code Chat panel from the auxiliary bar so only Xorvis is visible.
+		// Use getPinnedPaneCompositeIds which lists all sidebar icons (not just the active one).
 		const CHAT_VIEW_CONTAINER_ID = 'workbench.panel.chat';
-		const visible = this.paneCompositeService.getVisiblePaneCompositeIds(ViewContainerLocation.AuxiliaryBar);
-		if (visible.includes(CHAT_VIEW_CONTAINER_ID)) {
+		const pinned = this.paneCompositeService.getPinnedPaneCompositeIds(ViewContainerLocation.AuxiliaryBar);
+		if (pinned.includes(CHAT_VIEW_CONTAINER_ID)) {
 			await this.paneCompositeService.openPaneComposite(CHAT_VIEW_CONTAINER_ID, ViewContainerLocation.AuxiliaryBar, false);
 			this.paneCompositeService.hideActivePaneComposite(ViewContainerLocation.AuxiliaryBar);
 			await this.paneCompositeService.openPaneComposite(XORVIS_VIEW_CONTAINER_ID, ViewContainerLocation.AuxiliaryBar, false);
