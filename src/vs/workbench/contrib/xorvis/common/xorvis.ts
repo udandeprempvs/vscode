@@ -38,6 +38,9 @@ export interface IXorvisService {
 	readonly _serviceBrand: undefined;
 	readonly messages: readonly IChatMessage[];
 	readonly onDidChangeMessages: Event<void>;
+	readonly isProcessing: boolean;
+	readonly onDidChangeProcessing: Event<boolean>;
 	sendMessage(content: string): Promise<void>;
+	cancelRequest(): void;
 	clearHistory(): void;
 }

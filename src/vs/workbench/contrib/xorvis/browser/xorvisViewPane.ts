@@ -23,9 +23,9 @@ import './xorvis.css';
 export class XorvisViewPane extends ViewPane {
 
 	private _messagesContainer!: HTMLElement;
+	private _loadingEl!: HTMLElement;
 	private _inputArea!: HTMLTextAreaElement;
-	private _sendButton!: HTMLButtonElement;
-	private _isSending = false;
+	private _actionButton!: HTMLButtonElement;
 
 	private readonly _paneDisposables = this._register(new DisposableStore());
 
@@ -50,26 +50,71 @@ export class XorvisViewPane extends ViewPane {
 
 		const root = DOM.append(container, DOM.$('.xorvis-container'));
 
+		// Header
+		const header = DOM.append(root, DOM.$('.xorvis-header'));
+		const title = DOM.append(header, DOM.$('.xorvis-title'));
+		title.textContent = 'Xorvis AI';
+		const newChatBtn = DOM.append(header, DOM.$('button.xorvis-new-chat-btn')) as HTMLButtonElement;
+		newChatBtn.title = 'New Chat';
+		newChatBtn.textContent = '+ New Chat';
+
+		// Messages
 		this._messagesContainer = DOM.append(root, DOM.$('.xorvis-messages'));
 
+		// Loading indicator
+		this._loadingEl = DOM.append(root, DOM.$('.xorvis-loading'));
+		for (let i = 0; i < 3; i++) {
+			const dot = DOM.append(this._loadingEl, DOM.$('.xorvis-loading-dot'));
+			dot.textContent = '●';
+		}
+		this._loadingEl.style.display = 'none';
+
+		// Input area
 		const inputArea = DOM.append(root, DOM.$('.xorvis-input-area'));
 		this._inputArea = DOM.append(inputArea, DOM.$('textarea.xorvis-input')) as HTMLTextAreaElement;
 		this._inputArea.placeholder = 'Ask Xorvis AI...';
-		this._inputArea.rows = 3;
+		this._inputArea.rows = 1;
 
-		this._sendButton = DOM.append(inputArea, DOM.$('button.xorvis-send-btn')) as HTMLButtonElement;
-		this._sendButton.textContent = 'Send';
+		this._actionButton = DOM.append(inputArea, DOM.$('button.xorvis-send-btn')) as HTMLButtonElement;
+		this._actionButton.textContent = 'Send';
 
-		this._paneDisposables.add(DOM.addDisposableListener(this._sendButton, DOM.EventType.CLICK, () => this._send()));
-		this._paneDisposables.add(DOM.addDisposableListener(this._inputArea, DOM.EventType.KEY_DOWN, (e: KeyboardEvent) => {
-			if (e.key === 'Enter' && !e.shiftKey) {
-				e.preventDefault();
+		// Auto-resize textarea
+		this._paneDisposables.add(DOM.addDisposableListener(this._inputArea, DOM.EventType.INPUT, () => {
+			this._inputArea.style.height = 'auto';
+			this._inputArea.style.height = Math.min(this._inputArea.scrollHeight, 120) + 'px';
+		}));
+
+		// New chat
+		this._paneDisposables.add(DOM.addDisposableListener(newChatBtn, DOM.EventType.CLICK, () => {
+			this.xorvisService.clearHistory();
+			this._inputArea.focus();
+		}));
+
+		// Send / Stop button
+		this._paneDisposables.add(DOM.addDisposableListener(this._actionButton, DOM.EventType.CLICK, () => {
+			if (this.xorvisService.isProcessing) {
+				this.xorvisService.cancelRequest();
+			} else {
 				this._send();
 			}
 		}));
 
+		// Enter to send, Shift+Enter for newline
+		this._paneDisposables.add(DOM.addDisposableListener(this._inputArea, DOM.EventType.KEY_DOWN, (e: KeyboardEvent) => {
+			if (e.key === 'Enter' && !e.shiftKey) {
+				e.preventDefault();
+				if (!this.xorvisService.isProcessing) {
+					this._send();
+				}
+			}
+		}));
+
+		// React to message + processing changes
 		this._paneDisposables.add(this.xorvisService.onDidChangeMessages(() => this._renderMessages()));
+		this._paneDisposables.add(this.xorvisService.onDidChangeProcessing(processing => this._updateProcessingState(processing)));
+
 		this._renderMessages();
+		this._updateProcessingState(this.xorvisService.isProcessing);
 	}
 
 	protected override layoutBody(height: number, width: number): void {
@@ -93,7 +138,6 @@ export class XorvisViewPane extends ViewPane {
 			this._renderMessage(msg);
 		}
 
-		// Scroll to bottom
 		this._messagesContainer.scrollTop = this._messagesContainer.scrollHeight;
 	}
 
@@ -106,34 +150,42 @@ export class XorvisViewPane extends ViewPane {
 		if (msg.role === 'assistant') {
 			const html = marked.marked(msg.content) as string;
 			content.innerHTML = html;
+			// Style error messages
+			if (msg.content.startsWith('**Error:**')) {
+				content.classList.add('xorvis-message-error');
+			}
 		} else {
 			content.textContent = msg.content;
 		}
 	}
 
-	private async _send(): Promise<void> {
-		if (this._isSending) {
+	private _updateProcessingState(processing: boolean): void {
+		if (!this._actionButton || !this._inputArea || !this._loadingEl) {
 			return;
 		}
-		const text = this._inputArea.value.trim();
-		if (!text) {
-			return;
-		}
-
-		this._isSending = true;
-		this._inputArea.value = '';
-		this._sendButton.textContent = '...';
-		this._sendButton.disabled = true;
-		this._inputArea.disabled = true;
-
-		try {
-			await this.xorvisService.sendMessage(text);
-		} finally {
-			this._isSending = false;
-			this._sendButton.textContent = 'Send';
-			this._sendButton.disabled = false;
+		if (processing) {
+			// allow-any-unicode-next-line
+			this._actionButton.textContent = '■ Stop';
+			this._actionButton.classList.add('xorvis-stop-btn');
+			this._inputArea.disabled = true;
+			this._loadingEl.style.display = 'flex';
+		} else {
+			this._actionButton.textContent = 'Send';
+			this._actionButton.classList.remove('xorvis-stop-btn');
 			this._inputArea.disabled = false;
+			this._loadingEl.style.display = 'none';
 			this._inputArea.focus();
 		}
+	}
+
+	private async _send(): Promise<void> {
+		const text = this._inputArea.value.trim();
+		if (!text || this.xorvisService.isProcessing) {
+			return;
+		}
+
+		this._inputArea.value = '';
+		this._inputArea.style.height = 'auto';
+		await this.xorvisService.sendMessage(text);
 	}
 }

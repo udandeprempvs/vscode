@@ -86,7 +86,7 @@ registerAction2(class OpenXorvisChat extends Action2 {
 		super({
 			id: 'workbench.action.openXorvisChat',
 			title: localize2('openXorvisChat', 'Open Xorvis AI'),
-			category: localize2('xorvis', 'Xorvis'),
+			category: localize2('xorvisCategory', 'Xorvis'),
 			f1: true,
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyX,
@@ -106,7 +106,7 @@ registerAction2(class ClearXorvisChat extends Action2 {
 		super({
 			id: 'workbench.action.clearXorvisChat',
 			title: localize2('clearXorvisChat', 'Clear Xorvis AI Chat'),
-			category: localize2('xorvis', 'Xorvis'),
+			category: localize2('xorvisCategory', 'Xorvis'),
 			f1: true,
 		});
 	}
@@ -136,6 +136,15 @@ class XorvisAutoOpenContribution extends Disposable implements IWorkbenchContrib
 			ViewContainerLocation.AuxiliaryBar,
 			false, // keep focus in the editor
 		);
+
+		// Hide the built-in VS Code Chat panel from the auxiliary bar so only Xorvis is visible.
+		const CHAT_VIEW_CONTAINER_ID = 'workbench.panel.chat';
+		const visible = this.paneCompositeService.getVisiblePaneCompositeIds(ViewContainerLocation.AuxiliaryBar);
+		if (visible.includes(CHAT_VIEW_CONTAINER_ID)) {
+			await this.paneCompositeService.openPaneComposite(CHAT_VIEW_CONTAINER_ID, ViewContainerLocation.AuxiliaryBar, false);
+			this.paneCompositeService.hideActivePaneComposite(ViewContainerLocation.AuxiliaryBar);
+			await this.paneCompositeService.openPaneComposite(XORVIS_VIEW_CONTAINER_ID, ViewContainerLocation.AuxiliaryBar, false);
+		}
 	}
 }
 

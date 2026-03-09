@@ -22,6 +22,12 @@ export class XorvisService extends Disposable implements IXorvisService {
 	private readonly _onDidChangeMessages = this._register(new Emitter<void>());
 	readonly onDidChangeMessages: Event<void> = this._onDidChangeMessages.event;
 
+	private _isProcessing = false;
+	private readonly _onDidChangeProcessing = this._register(new Emitter<boolean>());
+	readonly onDidChangeProcessing: Event<boolean> = this._onDidChangeProcessing.event;
+
+	private _abortController: AbortController | undefined;
+
 	private readonly _bridge: IDEBridge;
 	private readonly _agentClient: AgentClient;
 
@@ -40,32 +46,52 @@ export class XorvisService extends Disposable implements IXorvisService {
 		return this._messages;
 	}
 
+	get isProcessing(): boolean {
+		return this._isProcessing;
+	}
+
 	async sendMessage(content: string): Promise<void> {
 		const userMessage: IChatMessage = { role: 'user', content, timestamp: Date.now() };
 		this._messages.push(userMessage);
 		this._onDidChangeMessages.fire();
+
+		this._abortController = new AbortController();
+		this._isProcessing = true;
+		this._onDidChangeProcessing.fire(true);
 
 		const currentFile = this._bridge.getCurrentFileContext();
 		const workspaceFiles = await this._bridge.getWorkspaceFiles();
 
 		let responseContent: string;
 		try {
-			const response = await this._agentClient.chat({
-				messages: this._messages.slice(),
-				context: { currentFile, workspaceFiles },
-			});
+			const response = await this._agentClient.chat(
+				{ messages: this._messages.slice(), context: { currentFile, workspaceFiles } },
+				this._abortController.signal,
+			);
 			responseContent = response.content;
 
 			if (response.patches && response.patches.length > 0) {
 				await this._applyPatches(response.patches);
 			}
 		} catch (err) {
-			responseContent = `**Error:** ${err instanceof Error ? err.message : String(err)}`;
+			if (err instanceof Error && err.name === 'AbortError') {
+				responseContent = '_Request cancelled._';
+			} else {
+				responseContent = `**Error:** ${err instanceof Error ? err.message : String(err)}`;
+			}
+		} finally {
+			this._abortController = undefined;
+			this._isProcessing = false;
+			this._onDidChangeProcessing.fire(false);
 		}
 
-		const assistantMessage: IChatMessage = { role: 'assistant', content: responseContent, timestamp: Date.now() };
+		const assistantMessage: IChatMessage = { role: 'assistant', content: responseContent!, timestamp: Date.now() };
 		this._messages.push(assistantMessage);
 		this._onDidChangeMessages.fire();
+	}
+
+	cancelRequest(): void {
+		this._abortController?.abort();
 	}
 
 	clearHistory(): void {
