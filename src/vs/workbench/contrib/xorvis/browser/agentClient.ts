@@ -15,6 +15,12 @@ export class AgentClient {
 	async chat(request: IAgentRequest, signal?: AbortSignal): Promise<IAgentResponse> {
 		const endpoint = this.configurationService.getValue<string>('xorvis.apiEndpoint') || 'http://localhost:8000/chat';
 
+		// The API is GET /chat?query=<last user message>
+		const lastUserMessage = [...request.messages].reverse().find(m => m.role === 'user');
+		const query = lastUserMessage?.content ?? '';
+		const url = new URL(endpoint);
+		url.searchParams.set('query', query);
+
 		const timeoutController = new AbortController();
 		const timeoutId = setTimeout(() => timeoutController.abort('timeout'), 30_000);
 
@@ -27,10 +33,8 @@ export class AgentClient {
 
 		let response: Response;
 		try {
-			response = await fetch(endpoint, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(request),
+			response = await fetch(url.toString(), {
+				method: 'GET',
 				signal: combinedController.signal,
 			});
 		} catch (err) {
@@ -63,7 +67,8 @@ export class AgentClient {
 			throw httpErr;
 		}
 
-		const data = await response.json() as IAgentResponse;
-		return data;
+		// Backend returns { "response": "..." } — map to internal IAgentResponse shape
+		const data = await response.json() as { response: string };
+		return { content: data.response };
 	}
 }
