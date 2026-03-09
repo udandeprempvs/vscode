@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import * as marked from '../../../../base/common/marked/marked.js';
+import { renderMarkdown } from '../../../../base/browser/markdownRenderer.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { MarkdownString } from '../../../../base/common/htmlContent.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -28,6 +29,7 @@ export class XorvisViewPane extends ViewPane {
 	private _actionButton!: HTMLButtonElement;
 
 	private readonly _paneDisposables = this._register(new DisposableStore());
+	private readonly _messageRenderStore = this._register(new DisposableStore());
 
 	constructor(
 		options: IViewPaneOptions,
@@ -125,6 +127,7 @@ export class XorvisViewPane extends ViewPane {
 		if (!this._messagesContainer) {
 			return;
 		}
+		this._messageRenderStore.clear();
 		DOM.clearNode(this._messagesContainer);
 
 		const messages = this.xorvisService.messages;
@@ -148,12 +151,12 @@ export class XorvisViewPane extends ViewPane {
 		const content = DOM.append(wrapper, DOM.$('.xorvis-message-content'));
 
 		if (msg.role === 'assistant') {
-			const html = marked.marked(msg.content) as string;
-			content.innerHTML = html;
+			const rendered = this._messageRenderStore.add(renderMarkdown(new MarkdownString(msg.content)));
 			// Style error messages
 			if (msg.content.startsWith('**Error:**')) {
-				content.classList.add('xorvis-message-error');
+				rendered.element.classList.add('xorvis-message-error');
 			}
+			content.appendChild(rendered.element);
 		} else {
 			content.textContent = msg.content;
 		}
