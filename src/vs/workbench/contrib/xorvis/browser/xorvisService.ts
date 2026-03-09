@@ -59,11 +59,11 @@ export class XorvisService extends Disposable implements IXorvisService {
 		this._isProcessing = true;
 		this._onDidChangeProcessing.fire(true);
 
-		const currentFile = this._bridge.getCurrentFileContext();
-		const workspaceFiles = await this._bridge.getWorkspaceFiles();
-
 		let responseContent: string;
 		try {
+			const currentFile = this._bridge.getCurrentFileContext();
+			const workspaceFiles = await this._bridge.getWorkspaceFiles();
+
 			const response = await this._agentClient.chat(
 				{ messages: this._messages.slice(), context: { currentFile, workspaceFiles } },
 				this._abortController.signal,
@@ -79,7 +79,6 @@ export class XorvisService extends Disposable implements IXorvisService {
 			} else {
 				const msg = err instanceof Error ? err.message : String(err);
 				responseContent = `**Error:** ${msg}`;
-				this.notificationService.error(msg);
 			}
 		} finally {
 			this._abortController = undefined;
